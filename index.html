@@ -1,0 +1,413 @@
+<!-- Index.html -->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reportes de Página</title>
+<!-- inclusion de bootstrap para estilos y funcionalidades -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://getbootstrap.com/docs/5.3/assets/css/docs.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <style>    
+        body {
+            background-color: #F7F7F7;
+            color: #333;
+            font-family: 'Arial', sans-serif;
+        }
+    
+        h1 {
+            color: #005CB9;
+            text-align: center;
+            padding: 5px 0;
+        }
+    
+        .sorting-buttons {
+            text-align: center;
+            padding: 20px 0;
+        }
+    
+        .sort-btn {
+            color: white;
+            background-color: #333;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+    
+        .sort-btn:hover {
+            background-color: #FFD500;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    
+        .active-sort-btn {
+            background-color: #005CB9;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    
+        .accordion-item {
+            background-color: white;
+            border: 1px solid #CCCCCC;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+    
+        .accordion-header {
+            font-weight: bold;
+        }
+    
+        .accordion-button {
+            background-color: #E1E1E1;
+            color: #333;
+            border-radius: 5px;
+        }
+    
+        .accordion-button:not(.collapsed) {
+            background-color: #FFD500;
+            color: #333;
+        }
+    
+        .btn-primary, .btn-warning, .btn-danger {
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            transition: all 0.2s ease-in-out;
+        }
+    
+        .btn-primary {
+            background-color: #333;
+            color: white;
+        }
+    
+        .btn-warning {
+            background-color: #FFD500;
+            color: #333;
+        }
+    
+        .btn-danger {
+            background-color: #CC0000;
+            color: white;
+        }
+    
+        .btn-primary:hover, .btn-warning:hover, .btn-danger:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+
+<body class="p-3 m-0 border-0 bd-example">
+    <h1>Reportes Whirlpool</h1>
+
+    <!-- botones para ordenar los reportes -->
+    <div class="sorting-buttons">
+        <button class="sort-btn" onclick="sortReports('sucursalID', 'ASC')">Sucursal Asc</button>
+        <button class="sort-btn" onclick="sortReports('sucursalID', 'DESC')">Sucursal Desc</button>
+        <button class="sort-btn" onclick="sortReports('prioridadID', 'ASC')">Prioridad Asc</button>
+        <button class="sort-btn" onclick="sortReports('prioridadID', 'DESC')">Prioridad Desc</button>
+        <button class="sort-btn" onclick="sortReports('fechaGenerado', 'DESC')">Más Rec</button>
+        <button class="sort-btn" onclick="sortReports('fechaGenerado', 'ASC')">Menos Rec</button>
+        <button class="sort-btn state-btn" onclick="sortReports('estadoID', '1')">Activos</button>
+        <button class="sort-btn state-btn" onclick="sortReports('estadoID', '2')">Inactivos</button>
+        <button class="sort-btn state-btn" onclick="sortReports('estadoID', '3')">Completados</button>
+        <button class="sort-btn state-btn" onclick="sortReports('estadoID', '4')">Rechazados</button>
+    </div>
+
+    <div id="reportList" class="accordion">     <!-- se inserta aqui lo reportes automaticamente-->     </div>
+        
+    <script>
+        // variables para almacenar datos de reportes y temas        
+        let currentSortBy = 'fechaGenerado';
+        let currentSortOrder = 'DESC';
+        let reportsData = [];
+        let temasData = [];
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await fetchInitialData();
+        });
+        
+        // carga datos iniciales de reportes y temas desde el servidor
+        async function fetchInitialData() {
+            try {
+                const responseReports = await fetch('/reports');
+                const reports = await responseReports.json();
+                const responseTemas = await fetch('/temas');
+                const temas = await responseTemas.json();
+            
+                if (reports.length !== temas.length) {
+                    console.error("La cantidad de reportes y temas no coincide, verificar los datos.");
+                    return;
+                }
+            
+                reportsData = reports.map((report, index) => ({
+                    ...report,
+                    tema: temas[index].tema
+                }));
+            
+                displayReports();
+            } catch (error) {
+                console.error("Error al obtener los datos iniciales:", error);
+            }
+        }
+
+        // ordena los reportes segun el criterio especificado
+        function sortReports(sortBy, sortOrder) {
+            currentSortBy = sortBy;
+            currentSortOrder = sortOrder;
+
+            if (sortBy === 'estadoID') {
+                sortOrder = parseInt(sortOrder);
+            }
+
+            reportsData.sort((a, b) => {
+                let valA = a[sortBy];
+                let valB = b[sortBy];
+
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return sortOrder === 'ASC' ? valA - valB : valB - valA;
+                } else {
+                    valA = valA.toString().toLowerCase();
+                    valB = valB.toString().toLowerCase();
+                    return sortOrder === 'ASC' ? (valA < valB ? -1 : (valA > valB ? 1 : 0)) : (valA > valB ? -1 : (valA < valB ? 1 : 0));
+                }
+            });
+
+            displayReports();
+            highlightActiveSortButton(sortBy, sortOrder);
+        }
+
+       // resalta el boton de ordenacion activo
+       function highlightActiveSortButton(sortBy, sortOrder) {
+            const buttons = document.querySelectorAll('.sort-btn');
+            buttons.forEach(button => {
+                button.classList.remove('active-sort-btn');
+                let buttonDetails = button.getAttribute('onclick').match(/sortReports\('([^']+)', '([^']+)'\)/);
+                let buttonSortBy = buttonDetails[1], buttonSortOrder = buttonDetails[2];
+                if (sortBy === buttonSortBy && sortOrder.toString() === buttonSortOrder.toString()) {
+                    button.classList.add('active-sort-btn');
+                }
+            });
+        }
+        
+        // muestra los reportes ordenados en la interfaz
+        function displayReports() {
+            const reportList = document.getElementById('reportList');
+            reportList.innerHTML = '';
+
+            // filtra reportes si se ordena por 'estadoID'
+            let filteredReports = reportsData;
+            if (currentSortBy === 'estadoID') {
+                filteredReports = reportsData.filter(report => report.estadoID === parseInt(currentSortOrder));
+            }
+
+            filteredReports.forEach(data => {
+                const item = createReportItem(data);
+                reportList.appendChild(item);
+            });
+        }
+        
+        // crea un item de reporte para la interfaz
+        function createReportItem(data) {
+            const item = document.createElement('div');
+            item.className = 'accordion-item';
+            item.innerHTML = `
+                <h2 class="accordion-header" id="heading${data.reporteID}">
+                    <button class="accordion-button collapsed" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#collapse${data.reporteID}"
+                            aria-expanded="false" aria-controls="collapse${data.reporteID}">
+                        Reporte #${data.reporteID} - ${data.tema}
+                    </button>
+                </h2>
+                <div id="collapse${data.reporteID}" class="accordion-collapse collapse"
+                     aria-labelledby="heading${data.reporteID}" data-bs-parent="#reportList">
+                    <div class="accordion-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <tbody>
+                                    <tr>
+                                        <th scope="row" colspan="4">Descripción:</th>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4">
+                                            <textarea class="form-control" rows="4" style="width:100%;" disabled>${data.descripcion}</textarea>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">Empleado:</th>
+                                        <td>${data.empleadoRealizaID} - ${data.empleadoNombre}</td>
+                                        <th scope="row">PromotorID:</th>
+                                        <td>
+                                            <select class="form-select" id="promotor${data.reporteID}" disabled>
+                                                <option value="1" ${data.promotorID == 1 ? 'selected' : ''}>Promotor 1</option>
+                                                <option value="2" ${data.promotorID == 2 ? 'selected' : ''}>Promotor 2</option>
+                                                <option value="3" ${data.promotorID == 3 ? 'selected' : ''}>Promotor 3</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">Generado:</th>
+                                        <td>${data.fechaGenerado}</td>
+                                        <th scope="row">Resuelto:</th>
+                                        <td>${data.fechaResolucion || 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">Prioridad:</th>
+                                        <td>
+                                            <select class="form-select" id="priority${data.reporteID}" disabled>
+                                                <option value="1" ${data.prioridadID == 1 ? 'selected' : ''}>Baja</option>
+                                                <option value="2" ${data.prioridadID == 2 ? 'selected' : ''}>Media</option>
+                                                <option value="3" ${data.prioridadID == 3 ? 'selected' : ''}>Alta</option>
+                                            </select>
+                                        </td>
+                                        <th scope="row">Estado:</th>
+                                        <td>
+                                            <select class="form-select" id="status${data.reporteID}" disabled onchange="checkStatusChange(${data.reporteID}, this)">
+                                                <option value="1" ${data.estadoID == 1 ? 'selected' : ''}>Activo</option>
+                                                <option value="2" ${data.estadoID == 2 ? 'selected' : ''}>Inactivo</option>
+                                                <option value="3" ${data.estadoID == 3 ? 'selected' : ''}>Completado</option>
+                                                <option value="4" ${data.estadoID == 4 ? 'selected' : ''}>Rechazado</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">Sucursal:</th>
+                                        <td colspan="3">${data.sucursalID} - ${data.nombreSucursal}</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="row">Foto:</th>
+                                        <td colspan="3">
+                                            <img src="${data.imageData}" alt="photo here" style="width:100%;max-width:300px;">
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button onclick="editReport(${data.reporteID})" class="btn btn-warning me-2">Editar</button>
+                            <button onclick="saveReport(${data.reporteID})" style="display:none;" class="btn btn-primary me-2">Actualizar</button>
+                            <input type="number" id="points${data.reporteID}" style="display:none;" class="form-control" placeholder="Enter points">
+                            <button onclick="updatePoints(${data.reporteID}, ${data.empleadoRealizaID})" style="display:none;" class="btn btn-primary">Agrega Puntos</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return item;
+        }
+
+        // esta función es para empezar a editar un reporte
+        function editReport(reportId) {
+            const prioritySelect = document.getElementById(`priority${reportId}`);
+            const statusSelect = document.getElementById(`status${reportId}`);
+            const promotorSelect = document.getElementById(`promotor${reportId}`);
+            const saveButton = document.querySelector(`button[onclick="saveReport(${reportId})"]`);
+            
+            prioritySelect.disabled = false;
+            statusSelect.disabled = false;
+            promotorSelect.disabled = false;
+
+            saveButton.style.display = 'inline-block';
+        }
+
+        // esta función es para actualizar el reporte en el servidor
+        async function updateReport(reportId, updatedData) {
+            try {
+                const response = await fetch(`/reports/${reportId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatedData),
+                }); 
+                fetchReports();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error("No se pudo actualizar:", error);
+            }
+        }
+
+        // guarda el reporte actualizado y busca de nuevo del servidor
+        async function saveReport(reportId) {
+            const prioritySelect = document.getElementById(`priority${reportId}`);
+            const statusSelect = document.getElementById(`status${reportId}`);
+            const promotorSelect = document.getElementById(`promotor${reportId}`);
+            const updatedData = {
+                prioridadID: parseInt(prioritySelect.value),
+        estadoID: parseInt(statusSelect.value), // Converting to integer
+        promotorID: parseInt(promotorSelect.value)
+            };
+            try {
+                const response = await fetch(`/reports/${reportId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(updatedData)
+                });
+                if (response.ok) {
+                    alert('Reporte actualizado correctamente');
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    const errorText = await response.text();
+                    alert(`No se actualizo el reporte: ${errorText}`);
+                }
+            } catch (error) {
+                console.error("Error salvando cambios:", error);
+                alert(`Error al guardar los cambios: ${error}`);
+            }
+        }
+
+
+        // esta función es para empezar a editar un reporte
+        function checkStatusChange(reportId, selectElement) {
+            const pointsInput = document.getElementById(`points${reportId}`);
+            const addPointsButton = document.querySelector(`button[onclick="updatePoints(${reportId}, ${reportsData.find(r => r.reporteID === reportId).empleadoRealizaID})"]`);
+            
+            if (selectElement.value === '3') {
+                pointsInput.style.display = 'block';
+                addPointsButton.style.display = 'block';
+            } else {
+                pointsInput.style.display = 'none';
+                addPointsButton.style.display = 'none';
+            }
+        }
+
+        // una funcion para agregar puntos
+        async function updatePoints(reportId, empleadoID) {
+            const pointsInput = document.getElementById(`points${reportId}`);
+            const points = parseInt(pointsInput.value, 10);
+            if (isNaN(points) || points <= 0) {
+                alert('Pon una cantidad de puntos valida.');
+                return;
+            }
+            try {
+                const response = await fetch('/updatePoints', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ empleadoID: empleadoID, additionalPoints: points })
+                });
+                if (response.ok) {
+                    alert('Puntos agregados');
+                    pointsInput.value = ''; // clear the input
+                    saveReport(reportId);
+                } else {
+                    throw new Error('No cambio el Puntaje');
+                }
+            } catch (error) {
+                console.error("Error cambiando puntos:", error);
+                alert("Error cambiando puntos");
+            }
+        }
+
+    </script>
+</body>
+
+
+</html>
